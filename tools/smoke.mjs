@@ -50,31 +50,37 @@ try {
   await page.waitForSelector(".xbar");
   ok(/^\d:\d\d:\d\d$/.test(await page.textContent("#x-time")), "timer format");
   ok((await page.textContent("#x-count")).trim() === "Item 1 of 90", "item counter");
-  ok(await page.locator(".pbq-table select").count() > 0, "first item is a table PBQ");
   ok(await page.isDisabled("#prev"), "previous disabled on item 1");
-  for (const s of await page.locator(".pbq-table select").all()) await s.selectOption({ index: 1 });
-  await shot(page, "pbq-table-1440");
-  await page.click("#next");
-
-  // match PBQ: tap a token, then a slot
-  await page.waitForSelector(".bank .token");
-  const firstTok = (await page.textContent(".bank .token")).trim();
-  await page.click(".bank .token");
-  await page.click(".slot[data-s='0']");
-  ok((await page.textContent(".slot[data-s='0']")).trim() === firstTok, "token placed in slot");
-  await page.click("#flag");
-  ok((await page.getAttribute("#flag", "aria-pressed")) === "true", "flag toggles on");
-  await shot(page, "pbq-match-1440");
-  await page.click("#next");
-
-  // order PBQ
-  await page.waitForSelector(".order-row");
-  const before = await page.textContent(".order-row[data-pos='0'] .order-t");
-  await page.click(".order-row[data-pos='0'] [data-down]");
-  ok((await page.textContent(".order-row[data-pos='1'] .order-t")) === before, "order step moved down");
-  await page.click("#next");
-  await page.click("#next");
-  await page.click("#next");
+  const newest = await page.evaluate(async () => (await import("./exams/index.js")).EXAMS.at(-1).id);
+  // the five PBQs, in whatever order the newest mock puts them
+  const seen = new Set();
+  let firstTok = "", matchAt = "";
+  for (let i = 1; i <= 5; i++) {
+    await page.waitForSelector(".pbq");
+    ok((await page.textContent("#x-count")).trim() === `Item ${i} of 90`, `PBQ ${i} counter`);
+    if (await page.locator(".pbq-table select").count()) {
+      seen.add("table");
+      for (const s of await page.locator(".pbq-table select").all()) await s.selectOption({ index: 1 });
+      if (!SHOTS || seen.size === 1) await shot(page, "pbq-table-1440");
+    } else if (await page.locator(".bank").count() && !matchAt) {
+      seen.add("match");
+      firstTok = (await page.textContent(".bank .token")).trim();
+      await page.click(".bank .token");
+      await page.click(".slot[data-s='0']");
+      ok((await page.textContent(".slot[data-s='0']")).trim() === firstTok, "token placed in slot");
+      await page.click("#flag");
+      ok((await page.getAttribute("#flag", "aria-pressed")) === "true", "flag toggles on");
+      matchAt = `Item ${i} of 90`;
+      await shot(page, "pbq-match-1440");
+    } else if (await page.locator(".order-row").count()) {
+      seen.add("order");
+      const before = await page.textContent(".order-row[data-pos='0'] .order-t");
+      await page.click(".order-row[data-pos='0'] [data-down]");
+      ok((await page.textContent(".order-row[data-pos='1'] .order-t")) === before, "order step moved down");
+    }
+    await page.click("#next");
+  }
+  ok(seen.has("match"), "the newest mock has a match PBQ among its first five items");
 
   // first multiple-choice item
   await page.waitForSelector(".opt");
@@ -104,13 +110,13 @@ try {
   ok(await page.locator(".rv-cell").count() === 1, "flagged filter shows 1");
   await shot(page, "review-1440");
   await page.click(".rv-cell");
-  ok((await page.textContent("#x-count")).trim() === "Item 2 of 90", "jump back to the flagged item");
+  ok((await page.textContent("#x-count")).trim() === matchAt, "jump back to the flagged item");
   ok((await page.getAttribute("#flag", "aria-pressed")) === "true", "flag still on");
 
   // resume after reload
   await page.reload();
   await page.waitForSelector(".xbar");
-  ok((await page.textContent("#x-count")).trim() === "Item 2 of 90", "resume on the same item after reload");
+  ok((await page.textContent("#x-count")).trim() === matchAt, "resume on the same item after reload");
   ok((await page.textContent(".slot[data-s='0']")).trim() === firstTok, "answer kept after reload");
 
   // end the exam
@@ -129,8 +135,8 @@ try {
   await shot(page, "report-1440");
 
   // a perfect attempt scores 900
-  await page.evaluate(async () => {
-    const exam = (await import("./exams/mock-01.js")).default;
+  await page.evaluate(async (id) => {
+    const exam = (await import(`./exams/${id}.js`)).default;
     const answers = {};
     for (const it of exam.items) {
       if (it.type === "single" || it.type === "multi") answers[it.id] = it.answer;
@@ -148,9 +154,9 @@ try {
       if (it.options) perm[it.id] = it.options.map((_, i) => i);
       if (it.steps) perm[it.id] = it.steps.map((_, i) => i);
     }
-    localStorage.setItem("secplus.attempt.v1.mock-01", JSON.stringify({ examId: "mock-01", seed: 1, order, perm, answers, flags: {}, struck: {}, cur: 89, remaining: 3600000, started: new Date().toISOString(), visited: {} }));
-  });
-  await page.goto(`${base}#/exam/mock-01`);
+    localStorage.setItem(`secplus.attempt.v1.${id}`, JSON.stringify({ examId: id, seed: 1, order, perm, answers, flags: {}, struck: {}, cur: 89, remaining: 3600000, started: new Date().toISOString(), visited: {} }));
+  }, newest);
+  await page.goto(`${base}#/exam/${newest}`);
   await page.waitForSelector(".xbar");
   await page.click("#review");
   ok((await page.textContent(".rv-sum")).includes("0 incomplete"), "perfect attempt has nothing incomplete");
@@ -171,21 +177,20 @@ try {
     await p2.waitForSelector(".exam-card");
     ok(await noHScroll(p2), `${vp.n}: home has no horizontal scroll`);
     await shot(p2, `home-${vp.n}`);
-    await p2.goto(`${base}#/exam/mock-01`);
+    await p2.click("text=Start the newest mock");
     await p2.click("#begin");
-    await p2.waitForSelector(".pbq-table");
-    ok(await noHScroll(p2), `${vp.n}: table PBQ page has no horizontal scroll`);
-    await shot(p2, `pbq-table-${vp.n}`);
-    await p2.click("#next");
-    await p2.waitForSelector(".bank .token");
-    await p2.tap?.(".bank .token").catch(() => {});
-    if (vp.n === "390") {
-      await p2.tap(".slot[data-s='0']");
-      ok((await p2.textContent(".slot[data-s='0']")).includes("Drop") === false, "phone: tap token then slot places it");
+    for (let i = 1; i <= 5; i++) {
+      await p2.waitForSelector(".pbq");
+      ok(await noHScroll(p2), `${vp.n}: PBQ ${i} has no horizontal scroll`);
+      const kind = (await p2.locator(".pbq-table").count()) ? "table" : (await p2.locator(".bank").count()) ? "match" : "order";
+      if (kind === "match" && vp.n === "390" && !(await p2.locator(".slot.filled").count())) {
+        await p2.tap(".bank .token");
+        await p2.tap(".slot[data-s='0']");
+        ok(await p2.locator(".slot.filled").count() === 1, "phone: tap token then slot places it");
+      }
+      await shot(p2, `pbq${i}-${kind}-${vp.n}`);
+      await p2.click("#next");
     }
-    ok(await noHScroll(p2), `${vp.n}: match PBQ has no horizontal scroll`);
-    await shot(p2, `pbq-match-${vp.n}`);
-    for (let i = 0; i < 4; i++) await p2.click("#next");
     await p2.waitForSelector(".opt");
     ok(await noHScroll(p2), `${vp.n}: multiple-choice item has no horizontal scroll`);
     ok(await p2.isVisible("#next"), `${vp.n}: Next visible`);
