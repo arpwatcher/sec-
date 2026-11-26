@@ -95,11 +95,13 @@ try {
 
   // find a multi-response item and test the limit
   let guard = 0;
+  await page.click("#next"); // item 6 already has a selection
   while (!(await page.textContent("#x-hint")).startsWith("Select") && guard++ < 90) await page.click("#next");
   ok(guard < 90, "found a multiple-response item");
+  const choose = Number((await page.textContent("#x-hint")).match(/\d+/)[0]);
   const opts = page.locator(".opt label");
-  await opts.nth(0).click(); await opts.nth(1).click(); await opts.nth(2).click();
-  ok(await page.locator(".opt.sel").count() === 2, "multi limited to choose count");
+  for (let k = 0; k <= choose; k++) await opts.nth(k).click();
+  ok(await page.locator(".opt.sel").count() === choose, `multi limited to choose count (${choose})`);
   ok(await page.isVisible("#too-many"), "too-many note shown");
 
   // review screen
