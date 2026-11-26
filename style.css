@@ -293,7 +293,7 @@ body.in-exam { background: var(--panel); }
 @media (max-width: 860px) {
   .two { grid-template-columns: 1fr; gap: 0; }
   .match { grid-template-columns: 1fr; }
-  .bank { position: static; }
+  .bank { top: 101px; z-index: 5; max-height: 34vh; overflow-y: auto; box-shadow: 0 6px 12px -8px rgba(16, 32, 48, .35); border-style: solid; }
 }
 @media (max-width: 600px) {
   .wrap, .xmain, .xbar-in, .xtools-in, .xnav-in { padding-left: 14px; padding-right: 14px; }
@@ -303,6 +303,9 @@ body.in-exam { background: var(--panel); }
   .x-count { font-size: 13px; }
   .x-time { font-size: 15px; min-width: 84px; padding: 3px 8px; }
   .xtools { top: 52px; }
+  .bank { top: 99px; padding: 8px; }
+  .bank-tokens { gap: 6px; }
+  .token { padding: 6px 9px; font-size: 13px; }
   .stem { font-size: 16px; }
   .xnav .btn { min-width: 0; flex: 1; padding: 8px 10px; }
   .xnav-in #prev { margin-right: 0; }
