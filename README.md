@@ -17,6 +17,7 @@ A new mock is added every day. Progress and scores stay in your browser.
 | --- | --- | --- | --- |
 | Mock Exam 1 | 2026-11-25 | 90 | 5 |
 | Mock Exam 2 | 2026-11-26 | 90 | 5 |
+| Mock Exam 3 | 2026-11-27 | 90 | 5 |
 
 ## Development
 
