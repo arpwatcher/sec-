@@ -94,6 +94,9 @@ kbd { font: 12px var(--mono); border: 1px solid var(--line); border-bottom-width
 .tag { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
 .ec-meta { color: var(--muted); margin: 6px 0 8px; font-size: 14px; }
 .ec-status { margin: 0 0 14px; font-size: 14px; }
+.ec-status:has(+ .ec-weak) { margin-bottom: 6px; }
+.ec-weak { margin: 0 0 14px; font-size: 13px; color: var(--muted); }
+.ec-weak b { color: var(--ink); font-weight: 600; }
 .ec-actions { margin-top: auto; display: flex; gap: 8px; flex-wrap: wrap; }
 .state { font-weight: 600; }
 .state.ok { color: var(--ok); }

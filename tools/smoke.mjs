@@ -134,6 +134,7 @@ try {
   await page.click("#rf [data-f='pbq']");
   ok(await page.locator(".rv-card").count() === 5, "report filter: 5 PBQs");
   ok(await page.locator(".missed li").count() > 10, "objectives to review listed");
+  ok(await page.evaluate(() => { const r = JSON.parse(localStorage.getItem("secplus.results.v1")); const l = Object.values(r)[0].at(-1); return !!l.domains && Object.keys(l.domains).length === 5; }), "attempt stores the five domain scores");
   await shot(page, "report-1440");
 
   // a perfect attempt scores 900
@@ -170,6 +171,7 @@ try {
   await page.goto(base);
   await page.waitForSelector(".exam-card");
   ok((await page.textContent(".exam-card")).includes("Best 900"), "home shows best score");
+  ok(await page.locator(".exam-card").first().locator(".ec-weak").count() === 0, "no weakest-domain line after a perfect attempt");
   await ctx.close();
 
   /* ---- 1920 and phone layouts ---- */

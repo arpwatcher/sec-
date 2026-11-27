@@ -233,7 +233,7 @@ function homePage() {
     return `<article class="exam-card ${i === 0 ? "newest" : ""}">
       <div class="ec-head"><h3>${esc(e.title)}</h3>${i === 0 ? `<span class="tag">Newest</span>` : ""}</div>
       <p class="ec-meta">${esc(fmtDate(e.date))} &middot; 90 items &middot; 90 minutes</p>
-      <p class="ec-status">${status}${last && !att ? ` <span class="muted">&middot; last ${last.scaled}</span>` : ""}</p>
+      <p class="ec-status">${status}${last && !att ? ` <span class="muted">&middot; last ${last.scaled}</span>` : ""}</p>${last && !att ? weakest(last) : ""}
       <div class="ec-actions">${action}</div>
     </article>`;
   }).join("");
@@ -273,6 +273,14 @@ function homePage() {
       </div>
     </section>
   </main>${siteFooter()}`;
+}
+
+// the lowest-scoring domain of an attempt, for the exam card (attempts saved before 2026-11-27 have no domains)
+function weakest(r) {
+  if (!r.domains) return "";
+  const [d, p] = Object.entries(r.domains).sort((a, b) => a[1] - b[1])[0] || [];
+  if (d === undefined || p >= 100) return "";
+  return `<p class="ec-weak">Weakest last time: <b>${d}.0 ${esc(DOMAINS[d].name)}</b>, ${p}%</p>`;
 }
 
 /* ---------- exam ---------- */
@@ -747,6 +755,7 @@ function runExam(exam, a) {
     list.push({
       date: new Date().toISOString(), scaled: g.scaled, pass: g.pass, earned: g.earned, total: g.total, full: g.full,
       used: exam.minutes * 60000 - a.remaining, timeUp, order: a.order, answers: a.answers, flags: a.flags,
+      domains: Object.fromEntries(Object.entries(g.byDomain).map(([d, x]) => [d, x.total ? Math.round((100 * x.earned) / x.total) : 0])),
     });
     all[exam.id] = list;
     store.set(KEY_RESULTS, all);
