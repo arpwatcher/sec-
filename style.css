@@ -274,6 +274,7 @@ body.in-exam { background: var(--panel); }
 .res.bad { color: var(--bad); }
 .res.mid { color: var(--mid); }
 .fl { font-size: 12px; font-weight: 700; color: var(--flag); }
+.tspent { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .obj { margin-left: auto; font-size: 13px; color: var(--muted); }
 .rv-opts { list-style: none; padding: 0; margin: 0 0 12px; }
 .rv-opts li { display: flex; gap: 8px; padding: 8px 10px; border: 1px solid var(--line-2); border-radius: 6px; margin-bottom: 6px; flex-wrap: wrap; }

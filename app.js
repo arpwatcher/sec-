@@ -52,6 +52,10 @@ function clock(ms) {
   const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), r = s % 60;
   return `${h}:${String(m).padStart(2, "0")}:${String(r).padStart(2, "0")}`;
 }
+function mmss(ms) {
+  const s = Math.max(0, Math.round(ms / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
 function mins(ms) {
   const m = Math.round(ms / 60000);
   return `${m} min`;
@@ -107,7 +111,7 @@ function newAttempt(exam) {
   return {
     examId: exam.id, seed, order: [...pbqs, ...mcqs], perm,
     answers: {}, flags: {}, struck: {}, cur: 0,
-    remaining: exam.minutes * 60000, started: new Date().toISOString(), visited: {},
+    remaining: exam.minutes * 60000, started: new Date().toISOString(), visited: {}, spent: {},
   };
 }
 const saveAttempt = (a) => store.set(KEY_ATTEMPT(a.examId), a);
@@ -363,9 +367,13 @@ function runExam(exam, a) {
   let last = performance.now();
   let saveTick = 0;
   let ended = false;
+  if (!a.spent) a.spent = {};
   const tick = () => {
     const now = performance.now();
-    if (!document.hidden) a.remaining -= now - last;
+    if (!document.hidden) {
+      a.remaining -= now - last;
+      if (view === "item") { const sid = a.order[a.cur]; a.spent[sid] = (a.spent[sid] || 0) + (now - last); }
+    }
     last = now;
     showTime();
     if (++saveTick % 5 === 0) saveAttempt(a);
@@ -755,6 +763,7 @@ function runExam(exam, a) {
     list.push({
       date: new Date().toISOString(), scaled: g.scaled, pass: g.pass, earned: g.earned, total: g.total, full: g.full,
       used: exam.minutes * 60000 - a.remaining, timeUp, order: a.order, answers: a.answers, flags: a.flags,
+      spent: Object.fromEntries(Object.entries(a.spent || {}).map(([k, ms]) => [k, Math.round(ms / 1000)])),
       domains: Object.fromEntries(Object.entries(g.byDomain).map(([d, x]) => [d, x.total ? Math.round((100 * x.earned) / x.total) : 0])),
     });
     all[exam.id] = list;
@@ -799,6 +808,12 @@ async function resultPage(id, n) {
     return `<tr><td class="dn">${d}.0 ${esc(info.name)}</td><td class="num">${x.items}</td>
       <td class="barcell"><div class="bar"><span style="width:${p}%" class="${p >= 81 ? "ok" : p >= 65 ? "mid" : "bad"}"></span></div></td><td class="num">${p}%</td></tr>`;
   }).join("");
+  const spent = r.spent || null;
+  const sumSec = (pred) => attempt.order.filter((iid) => pred(exam.byId.get(iid))).reduce((s, iid) => s + (spent[iid] || 0), 0);
+  const mcqCount = attempt.order.filter((iid) => !isPbq(exam.byId.get(iid))).length;
+  const timeFacts = spent ? `
+        <div><dt>Time on performance-based items</dt><dd>${mins(sumSec(isPbq) * 1000)}</dd></div>
+        <div><dt>Average per multiple-choice item</dt><dd>${mmss(mcqCount ? (sumSec((it) => !isPbq(it)) * 1000) / mcqCount : 0)}</dd></div>` : "";
   const missed = g.missed.map((o) => `<li><b>${o}</b> ${esc(OBJECTIVES[o] || "")}</li>`).join("");
 
   app.innerHTML = `${siteHeader()}
@@ -815,7 +830,7 @@ async function resultPage(id, n) {
         <div><dt>Items fully correct</dt><dd>${g.full} of ${g.count}</dd></div>
         <div><dt>Points</dt><dd>${g.earned.toFixed(1)} of ${g.total}</dd></div>
         <div><dt>Time used</dt><dd>${mins(r.used)} of ${exam.minutes} min${r.timeUp ? " (time ran out)" : ""}</dd></div>
-        <div><dt>Taken</dt><dd>${esc(new Date(r.date).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }))}</dd></div>
+        <div><dt>Taken</dt><dd>${esc(new Date(r.date).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }))}</dd></div>${timeFacts}
       </dl>
     </section>
     <p class="muted small">The scaled score is an estimate (points earned mapped onto 100&ndash;900). Performance-based items give partial credit; multiple-choice items are all or nothing.</p>
@@ -853,7 +868,7 @@ async function resultPage(id, n) {
       if (f === "wrong" && gi.full) return "";
       if (f === "flag" && !attempt.flags[iid]) return "";
       if (f === "pbq" && !isPbq(item)) return "";
-      return reviewCard(item, i, attempt.answers[iid], gi, !!attempt.flags[iid]);
+      return reviewCard(item, i, attempt.answers[iid], gi, !!attempt.flags[iid], spent ? spent[iid] || 0 : null);
     }).join("") || `<p class="muted">No items in this list.</p>`;
   };
   paint("all");
@@ -863,7 +878,7 @@ async function resultPage(id, n) {
   };
 }
 
-function reviewCard(item, i, v, g, flagged) {
+function reviewCard(item, i, v, g, flagged, secs) {
   const status = g.full ? `<span class="res ok">Correct</span>` : g.score > 0 ? `<span class="res mid">Partly correct (${g.score.toFixed(1)} of ${g.max})</span>` : `<span class="res bad">${v === undefined ? "Not answered" : "Incorrect"}</span>`;
   let body = "";
   if (item.type === "single" || item.type === "multi") {
@@ -896,7 +911,7 @@ function reviewCard(item, i, v, g, flagged) {
     }).join("")}</tbody></table>`;
   }
   return `<article class="rv-card ${g.full ? "ok" : "bad"}">
-    <header class="rv-card-h"><span class="qnum">Item ${i + 1}${isPbq(item) ? " &middot; Performance-based" : ""}</span>${flagged ? `<span class="fl">Flagged</span>` : ""}${status}<span class="obj" title="${esc(OBJECTIVES[item.obj] || "")}">Objective ${item.obj}</span></header>
+    <header class="rv-card-h"><span class="qnum">Item ${i + 1}${isPbq(item) ? " &middot; Performance-based" : ""}</span>${flagged ? `<span class="fl">Flagged</span>` : ""}${status}${secs === null || secs === undefined ? "" : `<span class="tspent" title="Time spent on this item">${mmss(secs * 1000)}</span>`}<span class="obj" title="${esc(OBJECTIVES[item.obj] || "")}">Objective ${item.obj}</span></header>
     <div class="stem">${item.stem}</div>${exhibitHtml(item)}
     ${body}
     <div class="explain"><h4>Explanation</h4>${item.explain}</div>

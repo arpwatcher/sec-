@@ -135,6 +135,7 @@ try {
   ok(await page.locator(".rv-card").count() === 5, "report filter: 5 PBQs");
   ok(await page.locator(".missed li").count() > 10, "objectives to review listed");
   ok(await page.evaluate(() => { const r = JSON.parse(localStorage.getItem("secplus.results.v1")); const l = Object.values(r)[0].at(-1); return !!l.domains && Object.keys(l.domains).length === 5; }), "attempt stores the five domain scores");
+  ok(await page.evaluate(() => { const r = JSON.parse(localStorage.getItem("secplus.results.v1")); const l = Object.values(r)[0].at(-1); return !!l.spent && Object.values(l.spent).some((s) => s >= 1); }), "attempt stores the time spent per item");
   await shot(page, "report-1440");
 
   // a perfect attempt scores 900
@@ -168,6 +169,8 @@ try {
   await page.waitForSelector(".score-card");
   ok((await page.textContent(".sc-num")).trim() === "900", "perfect attempt scores 900");
   ok((await page.textContent(".sc-verdict")).trim() === "Passed", "perfect attempt passes");
+  ok((await page.textContent(".sc-facts")).includes("Average per multiple-choice item"), "report shows the time facts");
+  ok(await page.locator(".rv-card .tspent").count() === 90, "every item in the report shows its time");
   await page.goto(base);
   await page.waitForSelector(".exam-card");
   ok((await page.textContent(".exam-card")).includes("Best 900"), "home shows best score");
