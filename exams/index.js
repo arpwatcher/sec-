@@ -4,4 +4,5 @@ export const EXAMS = [
   { id: "mock-01", title: "Mock Exam 1", date: "2026-11-25", load: () => import("./mock-01.js") },
   { id: "mock-02", title: "Mock Exam 2", date: "2026-11-26", load: () => import("./mock-02.js") },
   { id: "mock-03", title: "Mock Exam 3", date: "2026-11-27", load: () => import("./mock-03.js") },
+  { id: "mock-04", title: "Mock Exam 4", date: "2026-11-28", load: () => import("./mock-04.js") },
 ];
